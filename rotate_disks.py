@@ -43,6 +43,34 @@ def disk_with_round_hole_path(R, offset, radius, angle, cx, cy):
     codes = [Path.MOVETO] + [Path.LINETO] * (n - 1) + [Path.MOVETO] + [Path.LINETO] * m
     return verts, codes
 
+def disk_with_sector_hole_path(R, offset, radius, angle, cx, cy, half_angle=np.pi/4):
+    n = 80
+    theta = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    circle = np.column_stack([cx + R * np.cos(theta), cy + R * np.sin(theta)])
+
+    rot = np.array([[np.cos(angle), -np.sin(angle)],
+                    [np.sin(angle),  np.cos(angle)]])
+
+    ha = half_angle
+    inner_r = 0.04
+    outer_r = inner_r + radius
+    m = 20
+
+    def fan_ring_verts(th_start, th_end):
+        outer_th = np.linspace(th_start, th_end, m)
+        inner_th = np.linspace(th_end, th_start, m)
+        outer_xy = np.column_stack([outer_r * np.sin(outer_th), outer_r * np.cos(outer_th)])
+        inner_xy = np.column_stack([inner_r * np.sin(inner_th), inner_r * np.cos(inner_th)])
+        return np.vstack([outer_xy, inner_xy, outer_xy[:1]])
+
+    ring = fan_ring_verts(-ha, ha)
+    ring_world = ring @ rot.T + np.array([cx, cy])
+
+    verts = np.vstack([circle, ring_world])
+    codes = ([Path.MOVETO] + [Path.LINETO] * (n - 1) +
+             [Path.MOVETO] + [Path.LINETO] * (2 * m))
+    return verts, codes
+
 def point_in_square(px, py, cx, cy, angle, hs):
     dx = px - cx
     dy = py - cy
@@ -53,6 +81,21 @@ def point_in_square(px, py, cx, cy, angle, hs):
 
 def point_in_circle(px, py, cx, cy, radius):
     return (px - cx) ** 2 + (py - cy) ** 2 < radius ** 2
+
+def point_in_sector(px, py, cx, cy, angle, radius, half_angle):
+    dx = px - cx
+    dy = py - cy
+    dist = np.sqrt(dx * dx + dy * dy)
+    inner_r = 0.04
+    if dist > inner_r + radius or dist < inner_r:
+        return False
+    ax_x = np.sin(angle)
+    ax_y = -np.cos(angle)
+    dot = dx * ax_x + dy * ax_y
+    cross = dx * ax_y - dy * ax_x
+    return abs(np.arctan2(cross, dot)) <= half_angle
+
+HOLE_TYPES = ['Square', 'Round', 'Sector']
 
 def main():
     fig = plt.figure(figsize=(11, 7.5))
@@ -66,8 +109,9 @@ def main():
     ax.set_title('Concentric Disks', fontsize=10)
 
     cx, cy = 0.0, 0.0
+    R = 1.0
     N = [100]
-    round_hole = [False]
+    hole_type_idx = [0]
     realtime_map = np.zeros((100, 100))
     cumulative_map = np.zeros((100, 100))
 
@@ -92,8 +136,6 @@ def main():
                           origin='lower')
     ax_cu.set_xlabel('x')
     ax_cu.set_ylabel('y')
-
-    R = 1.0
 
     ax_a1  = fig.add_axes([0.20, 0.232, 0.60, 0.025])
     ax_a2  = fig.add_axes([0.20, 0.202, 0.60, 0.025])
@@ -156,6 +198,24 @@ def main():
             btn_pause.label.set_text('Resume')
             paused[0] = True
 
+    def make_gray_path(radius, offset, size, angle, cx, cy):
+        typ = HOLE_TYPES[hole_type_idx[0]]
+        if typ == 'Round':
+            return disk_with_round_hole_path(radius, offset, size, angle, cx, cy)
+        elif typ == 'Sector':
+            return disk_with_sector_hole_path(radius, offset, size, angle, cx, cy)
+        else:
+            return disk_with_hole_path(radius, offset, size, angle, cx, cy)
+
+    def point_in_gray_hole(px, py, hx, hy, angle, size, disk_cx, disk_cy):
+        typ = HOLE_TYPES[hole_type_idx[0]]
+        if typ == 'Round':
+            return point_in_circle(px, py, hx, hy, size)
+        elif typ == 'Sector':
+            return point_in_sector(px, py, disk_cx, disk_cy, angle, size, np.pi/4)
+        else:
+            return point_in_square(px, py, hx, hy, angle, size)
+
     def rebuild_displays():
         n = N[0]
         hs_gray = s_hole_gray.val / 2
@@ -165,10 +225,7 @@ def main():
         eff_a1 = angle1[0] + np.deg2rad(s_angle1.val)
         eff_a2 = angle2[0] + np.deg2rad(s_angle2.val)
 
-        if round_hole[0]:
-            v1, c1 = disk_with_round_hole_path(R, offset_cur, hs_gray, eff_a1, cx, cy)
-        else:
-            v1, c1 = disk_with_hole_path(R, offset_cur, hs_gray, eff_a1, cx, cy)
+        v1, c1 = make_gray_path(R, offset_cur, hs_gray, eff_a1, cx, cy)
         v2, c2 = disk_with_hole_path(R, offset_cur, hs_green, eff_a2, cx, cy)
         patch_gray.set_path(Path(v1, c1))
         patch_green.set_path(Path(v2, c2))
@@ -183,10 +240,7 @@ def main():
             for iy in range(n):
                 wx = gx + local_x[ix] * np.cos(eff_a2) - local_y[iy] * np.sin(eff_a2)
                 wy = gy + local_x[ix] * np.sin(eff_a2) + local_y[iy] * np.cos(eff_a2)
-                if round_hole[0]:
-                    lit = point_in_circle(wx, wy, hx, hy, hs_gray)
-                else:
-                    lit = point_in_square(wx, wy, hx, hy, eff_a1, hs_gray)
+                lit = point_in_gray_hole(wx, wy, hx, hy, eff_a1, hs_gray, cx, cy)
                 realtime_map[iy, ix] = 1.0 if lit else 0.0
 
     def do_reset(event):
@@ -204,8 +258,8 @@ def main():
             ani.resume()
 
     def toggle_hole(event):
-        round_hole[0] = not round_hole[0]
-        hole_label.set_text(f'Gray hole: {"Round" if round_hole[0] else "Square"}')
+        hole_type_idx[0] = (hole_type_idx[0] + 1) % len(HOLE_TYPES)
+        hole_label.set_text(f'Gray hole: {HOLE_TYPES[hole_type_idx[0]]}')
         rebuild_displays()
         img_rt.set_data(realtime_map[:N[0], :N[0]])
         fig.canvas.draw_idle()
@@ -226,10 +280,7 @@ def main():
         offset_dist = R * 0.44
         offset_cur = (0, offset_dist)
 
-        if round_hole[0]:
-            v1, c1 = disk_with_round_hole_path(R, offset_cur, hs_gray, eff_a1, cx, cy)
-        else:
-            v1, c1 = disk_with_hole_path(R, offset_cur, hs_gray, eff_a1, cx, cy)
+        v1, c1 = make_gray_path(R, offset_cur, hs_gray, eff_a1, cx, cy)
         v2, c2 = disk_with_hole_path(R, offset_cur, hs_green, eff_a2, cx, cy)
         patch_gray.set_path(Path(v1, c1))
         patch_green.set_path(Path(v2, c2))
@@ -249,10 +300,7 @@ def main():
             for iy in range(n):
                 wx = gx + local_x[ix] * np.cos(eff_a2) - local_y[iy] * np.sin(eff_a2)
                 wy = gy + local_x[ix] * np.sin(eff_a2) + local_y[iy] * np.cos(eff_a2)
-                if round_hole[0]:
-                    lit = point_in_circle(wx, wy, hx, hy, hs_gray)
-                else:
-                    lit = point_in_square(wx, wy, hx, hy, eff_a1, hs_gray)
+                lit = point_in_gray_hole(wx, wy, hx, hy, eff_a1, hs_gray, cx, cy)
                 realtime_map[iy, ix] = 1.0 if lit else 0.0
                 if lit:
                     cumulative_map[iy, ix] += dt * 10
