@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, Button
 
 def disk_with_hole_path(R, offset, half_side, angle, cx, cy):
     n = 80
@@ -53,7 +53,7 @@ def main():
     ax.add_patch(patch_green)
     ax.add_patch(patch_gray)
 
-    ax_rt = fig.add_axes([0.56, 0.62, 0.38, 0.35])
+    ax_rt = fig.add_axes([0.56, 0.58, 0.38, 0.34])
     ax_rt.set_title('Real-time exposure (green hole)', fontsize=9)
     img_rt = ax_rt.imshow(realtime_map, aspect='equal', cmap='hot',
                           vmin=0, vmax=1, interpolation='nearest',
@@ -61,7 +61,7 @@ def main():
     ax_rt.set_xlabel('x')
     ax_rt.set_ylabel('y')
 
-    ax_cu = fig.add_axes([0.56, 0.12, 0.38, 0.35])
+    ax_cu = fig.add_axes([0.56, 0.28, 0.38, 0.27])
     ax_cu.set_title('Cumulative exposure (green hole)', fontsize=9)
     img_cu = ax_cu.imshow(cumulative_map, aspect='equal', cmap='hot',
                           vmin=0, interpolation='nearest',
@@ -69,36 +69,29 @@ def main():
     ax_cu.set_xlabel('x')
     ax_cu.set_ylabel('y')
 
-    ax_s1 = fig.add_axes([0.20, 0.22, 0.60, 0.03])
-    ax_s2 = fig.add_axes([0.20, 0.18, 0.60, 0.03])
-    ax_d  = fig.add_axes([0.20, 0.14, 0.60, 0.03])
-    ax_q  = fig.add_axes([0.20, 0.10, 0.60, 0.03])
-    ax_n  = fig.add_axes([0.20, 0.06, 0.60, 0.03])
+    ax_a1  = fig.add_axes([0.20, 0.232, 0.60, 0.025])
+    ax_a2  = fig.add_axes([0.20, 0.202, 0.60, 0.025])
+    ax_s1  = fig.add_axes([0.20, 0.172, 0.60, 0.025])
+    ax_s2  = fig.add_axes([0.20, 0.142, 0.60, 0.025])
+    ax_d   = fig.add_axes([0.20, 0.112, 0.60, 0.025])
+    ax_q   = fig.add_axes([0.20, 0.082, 0.60, 0.025])
+    ax_n   = fig.add_axes([0.20, 0.052, 0.60, 0.025])
 
+    s_angle1 = Slider(ax_a1, 'Gray start angle (°)', 0, 360, valinit=0, valfmt='%.0f', color='#999999')
+    s_angle2 = Slider(ax_a2, 'Green start angle (°)', 0, 360, valinit=0, valfmt='%.0f', color='#90EE90')
     s_speed1 = Slider(ax_s1, 'Gray speed (RPM)', 0, 120, valinit=10, valfmt='%.1f', color='#999999')
     s_speed2 = Slider(ax_s2, 'Green speed (RPM)', 0, 120, valinit=0, valfmt='%.1f', color='#90EE90')
     s_diam   = Slider(ax_d,  'Diameter',  0.2, 2.0, valinit=2.0, valfmt='%.2f')
     s_side   = Slider(ax_q,  'Square side', 0.02, 0.6, valinit=0.6, valfmt='%.2f')
     s_grid   = Slider(ax_n,  'Grid (N×N)', 2, 200, valinit=100, valfmt='%d', valstep=1)
 
-    for s in [s_speed1, s_speed2, s_diam, s_side, s_grid]:
-        s.valtext.set_fontsize(8)
-        s.label.set_fontsize(8)
+    for s in [s_angle1, s_angle2, s_speed1, s_speed2, s_diam, s_side, s_grid]:
+        s.valtext.set_fontsize(7)
+        s.label.set_fontsize(7)
 
     angle1 = [0.0]
     angle2 = [0.0]
-
-    def rebuild_grids(n):
-        realtime_map[:] = 0
-        cumulative_map[:] = 0
-        img_rt.set_data(realtime_map)
-        img_cu.set_data(cumulative_map)
-        img_rt.set_extent([-1, 1, -1, 1])
-        img_cu.set_extent([-1, 1, -1, 1])
-        ax_rt.set_xlim(-0.5, n - 0.5)
-        ax_rt.set_ylim(-0.5, n - 0.5)
-        ax_cu.set_xlim(-0.5, n - 0.5)
-        ax_cu.set_ylim(-0.5, n - 0.5)
+    paused = [False]
 
     def on_grid_change(val):
         n = int(s_grid.val)
@@ -115,6 +108,61 @@ def main():
 
     s_grid.on_changed(on_grid_change)
 
+    ax_btn1 = fig.add_axes([0.20, 0.262, 0.12, 0.03])
+    ax_btn2 = fig.add_axes([0.34, 0.262, 0.12, 0.03])
+    btn_pause = Button(ax_btn1, 'Pause', color='lightgray', hovercolor='yellow')
+    btn_reset = Button(ax_btn2, 'Reset', color='lightgray', hovercolor='orange')
+
+    def toggle_pause(event):
+        if paused[0]:
+            ani.event_source.start()
+            btn_pause.label.set_text('Pause')
+            paused[0] = False
+        else:
+            ani.event_source.stop()
+            btn_pause.label.set_text('Resume')
+            paused[0] = True
+        fig.canvas.draw_idle()
+
+    def do_reset(event):
+        was_paused = paused[0]
+        if not was_paused:
+            ani.event_source.stop()
+        angle1[0] = 0.0
+        angle2[0] = 0.0
+        cumulative_map[:] = 0
+        img_cu.set_clim(vmin=0, vmax=1)
+        n = N[0]
+        R_cur = s_diam.val / 2
+        hs_cur = s_side.val / 2
+        offset_cur = (0, R_cur * 0.44)
+        offset_dist = R_cur * 0.44
+        v1, c1 = disk_with_hole_path(R_cur, offset_cur, hs_cur, 0, cx, cy)
+        v2, c2 = disk_with_hole_path(R_cur, offset_cur, hs_cur, 0, cx, cy)
+        patch_gray.set_path(Path(v1, c1))
+        patch_green.set_path(Path(v2, c2))
+        # compute initial realtime frame
+        gx = cx + offset_dist * np.sin(0)
+        gy = cy - offset_dist * np.cos(0)
+        hx = cx + offset_dist * np.sin(0)
+        hy = cy - offset_dist * np.cos(0)
+        local_x = np.linspace(-hs_cur, hs_cur, n)
+        local_y = np.linspace(-hs_cur, hs_cur, n)
+        for ix in range(n):
+            for iy in range(n):
+                wx = gx + local_x[ix] * np.cos(0) - local_y[iy] * np.sin(0)
+                wy = gy + local_x[ix] * np.sin(0) + local_y[iy] * np.cos(0)
+                lit = point_in_square(wx, wy, hx, hy, 0, hs_cur)
+                realtime_map[iy, ix] = 1.0 if lit else 0.0
+        img_rt.set_data(realtime_map[:n, :n])
+        img_cu.set_data(cumulative_map[:n, :n])
+        if not was_paused:
+            ani.event_source.start()
+        fig.canvas.draw_idle()
+
+    btn_pause.on_clicked(toggle_pause)
+    btn_reset.on_clicked(do_reset)
+
     def update(frame):
         n = N[0]
         R_cur = s_diam.val / 2
@@ -122,18 +170,20 @@ def main():
         dt = 0.03
         angle1[0] += s_speed1.val * (2 * np.pi) / 60 * dt
         angle2[0] += s_speed2.val * (2 * np.pi) / 60 * dt
+        eff_a1 = angle1[0] + np.deg2rad(s_angle1.val)
+        eff_a2 = angle2[0] + np.deg2rad(s_angle2.val)
         offset_dist = R_cur * 0.44
         offset_cur = (0, offset_dist)
 
-        v1, c1 = disk_with_hole_path(R_cur, offset_cur, hs_cur, angle1[0], cx, cy)
-        v2, c2 = disk_with_hole_path(R_cur, offset_cur, hs_cur, angle2[0], cx, cy)
+        v1, c1 = disk_with_hole_path(R_cur, offset_cur, hs_cur, eff_a1, cx, cy)
+        v2, c2 = disk_with_hole_path(R_cur, offset_cur, hs_cur, eff_a2, cx, cy)
         patch_gray.set_path(Path(v1, c1))
         patch_green.set_path(Path(v2, c2))
 
-        gx = cx + offset_dist * np.sin(angle2[0])
-        gy = cy - offset_dist * np.cos(angle2[0])
-        hx = cx + offset_dist * np.sin(angle1[0])
-        hy = cy - offset_dist * np.cos(angle1[0])
+        gx = cx + offset_dist * np.sin(eff_a2)
+        gy = cy - offset_dist * np.cos(eff_a2)
+        hx = cx + offset_dist * np.sin(eff_a1)
+        hy = cy - offset_dist * np.cos(eff_a1)
 
         if n > realtime_map.shape[0]:
             realtime_map.resize((n, n))
@@ -172,6 +222,21 @@ def main():
 
     s_diam.on_changed(on_change)
     s_side.on_changed(on_change)
+
+    def on_angle_change(val):
+        R_cur = s_diam.val / 2
+        hs_cur = s_side.val / 2
+        eff_a1 = angle1[0] + np.deg2rad(s_angle1.val)
+        eff_a2 = angle2[0] + np.deg2rad(s_angle2.val)
+        offset_cur = (0, R_cur * 0.44)
+        v1, c1 = disk_with_hole_path(R_cur, offset_cur, hs_cur, eff_a1, cx, cy)
+        v2, c2 = disk_with_hole_path(R_cur, offset_cur, hs_cur, eff_a2, cx, cy)
+        patch_gray.set_path(Path(v1, c1))
+        patch_green.set_path(Path(v2, c2))
+        fig.canvas.draw_idle()
+
+    s_angle1.on_changed(on_angle_change)
+    s_angle2.on_changed(on_angle_change)
 
     plt.show()
 
