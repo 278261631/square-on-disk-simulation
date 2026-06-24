@@ -43,9 +43,9 @@ def main():
     ax.set_title('Concentric Disks', fontsize=10)
 
     cx, cy = 0.0, 0.0
-    N = [10]
-    realtime_map = np.zeros((10, 10))
-    cumulative_map = np.zeros((10, 10))
+    N = [100]
+    realtime_map = np.zeros((100, 100))
+    cumulative_map = np.zeros((100, 100))
 
     dummy = Path([[0, 0]])
     patch_green = PathPatch(dummy, fc='#90EE90', ec='black', lw=1, zorder=1)
@@ -79,7 +79,7 @@ def main():
     s_speed2 = Slider(ax_s2, 'Green speed (RPM)', 0, 120, valinit=0, valfmt='%.1f', color='#90EE90')
     s_diam   = Slider(ax_d,  'Diameter',  0.2, 2.0, valinit=2.0, valfmt='%.2f')
     s_side   = Slider(ax_q,  'Square side', 0.02, 0.6, valinit=0.6, valfmt='%.2f')
-    s_grid   = Slider(ax_n,  'Grid (N×N)', 2, 30, valinit=10, valfmt='%d', valstep=1)
+    s_grid   = Slider(ax_n,  'Grid (N×N)', 2, 200, valinit=100, valfmt='%d', valstep=1)
 
     for s in [s_speed1, s_speed2, s_diam, s_side, s_grid]:
         s.valtext.set_fontsize(8)
