@@ -107,8 +107,8 @@ def main():
     s_angle2 = Slider(ax_a2, 'Green start angle (°)', 0, 360, valinit=0, valfmt='%.0f', color='#90EE90')
     s_speed1 = Slider(ax_s1, 'Gray speed (RPM)', 0, 120, valinit=10, valfmt='%.1f', color='#999999')
     s_speed2 = Slider(ax_s2, 'Green speed (RPM)', 0, 120, valinit=0, valfmt='%.1f', color='#90EE90')
-    s_hole_gray  = Slider(ax_qg, 'Gray hole size', 0.02, 0.6, valinit=0.3, valfmt='%.2f')
-    s_hole_green = Slider(ax_q,  'Green hole size', 0.02, 0.6, valinit=0.6, valfmt='%.2f')
+    s_hole_gray  = Slider(ax_qg, 'Gray hole size', 0.02, 1.5, valinit=0.5, valfmt='%.2f')
+    s_hole_green = Slider(ax_q,  'Green hole size', 0.02, 1.5, valinit=0.5, valfmt='%.2f')
     s_grid   = Slider(ax_n,  'Grid (N×N)', 2, 200, valinit=100, valfmt='%d', valstep=1)
 
     for s in [s_angle1, s_angle2, s_speed1, s_speed2, s_hole_gray, s_hole_green, s_grid]:
