@@ -34,8 +34,8 @@ def main():
     cx, cy = 0.0, 0.0
 
     dummy = Path([[0, 0]])
-    patch_green = PathPatch(dummy, fc='#90EE90', ec='black', lw=1)
-    patch_gray  = PathPatch(dummy, fc='#999999', ec='black', lw=1)
+    patch_green = PathPatch(dummy, fc='#90EE90', ec='black', lw=1, zorder=1)
+    patch_gray  = PathPatch(dummy, fc='#999999', ec='black', lw=1, zorder=2)
     ax.add_patch(patch_green)
     ax.add_patch(patch_gray)
 
@@ -44,8 +44,8 @@ def main():
     ax_d  = fig.add_axes([0.2, 0.11, 0.6, 0.04])
     ax_q  = fig.add_axes([0.2, 0.05, 0.6, 0.04])
 
-    s_speed1 = Slider(ax_s1, 'Gray speed (RPM)', 0, 120, valinit=0, valfmt='%.1f', color='#999999')
-    s_speed2 = Slider(ax_s2, 'Green speed (RPM)', 0, 120, valinit=10, valfmt='%.1f', color='#90EE90')
+    s_speed1 = Slider(ax_s1, 'Gray speed (RPM)', 0, 120, valinit=10, valfmt='%.1f', color='#999999')
+    s_speed2 = Slider(ax_s2, 'Green speed (RPM)', 0, 120, valinit=0, valfmt='%.1f', color='#90EE90')
     s_diam   = Slider(ax_d,  'Diameter',  0.2, 2.0, valinit=2.0, valfmt='%.2f')
     s_side   = Slider(ax_q,  'Square side', 0.02, 0.6, valinit=0.6, valfmt='%.2f')
 
