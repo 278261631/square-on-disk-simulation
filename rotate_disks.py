@@ -43,7 +43,8 @@ def disk_with_round_hole_path(R, offset, radius, angle, cx, cy):
     codes = [Path.MOVETO] + [Path.LINETO] * (n - 1) + [Path.MOVETO] + [Path.LINETO] * m
     return verts, codes
 
-def disk_with_sector_hole_path(R, offset, radius, angle, cx, cy, off_x=0, off_y=0, half_angle=np.pi/4):
+def disk_with_sector_hole_path(R, offset, outer_r, angle, cx, cy, off_x=0, off_y=0,
+                                inner_r=0, half_angle=np.pi/4):
     n = 80
     theta = np.linspace(0, 2 * np.pi, n, endpoint=False)
     circle = np.column_stack([cx + R * np.cos(theta), cy + R * np.sin(theta)])
@@ -53,8 +54,6 @@ def disk_with_sector_hole_path(R, offset, radius, angle, cx, cy, off_x=0, off_y=
     rot_off = rot @ np.array([off_x, off_y])
 
     ha = half_angle
-    inner_r = 0.04
-    outer_r = inner_r + radius
     m = 20
 
     def fan_ring_verts(th_start, th_end):
@@ -83,12 +82,11 @@ def point_in_square(px, py, cx, cy, angle, hs):
 def point_in_circle(px, py, cx, cy, radius):
     return (px - cx) ** 2 + (py - cy) ** 2 < radius ** 2
 
-def point_in_sector(px, py, cx, cy, angle, radius, half_angle):
+def point_in_sector(px, py, cx, cy, angle, outer_r, half_angle, inner_r=0):
     dx = px - cx
     dy = py - cy
     dist = np.sqrt(dx * dx + dy * dy)
-    inner_r = 0.04
-    if dist > inner_r + radius or dist < inner_r:
+    if dist > outer_r or dist < inner_r:
         return False
     ax_x = np.sin(angle)
     ax_y = -np.cos(angle)
@@ -99,10 +97,10 @@ def point_in_sector(px, py, cx, cy, angle, radius, half_angle):
 HOLE_TYPES = ['Square', 'Round', 'Sector']
 
 def main():
-    fig = plt.figure(figsize=(11, 7.5))
-    fig.subplots_adjust(bottom=0.30, left=0.04, right=0.96)
+    fig = plt.figure(figsize=(11, 9))
+    fig.subplots_adjust(bottom=0.28, left=0.04, right=0.96)
 
-    ax = fig.add_axes([0.04, 0.30, 0.45, 0.66])
+    ax = fig.add_axes([0.04, 0.28, 0.45, 0.68])
     ax.set_xlim(-1.5, 1.5)
     ax.set_ylim(-1.5, 1.5)
     ax.set_aspect('equal')
@@ -122,7 +120,7 @@ def main():
     ax.add_patch(patch_green)
     ax.add_patch(patch_gray)
 
-    ax_rt = fig.add_axes([0.56, 0.62, 0.38, 0.30])
+    ax_rt = fig.add_axes([0.56, 0.58, 0.38, 0.35])
     ax_rt.set_title('Real-time exposure (green hole)', fontsize=9)
     img_rt = ax_rt.imshow(realtime_map, aspect='equal', cmap='hot',
                           vmin=0, vmax=1, interpolation='nearest',
@@ -130,7 +128,7 @@ def main():
     ax_rt.set_xlabel('x')
     ax_rt.set_ylabel('y')
 
-    ax_cu = fig.add_axes([0.56, 0.30, 0.38, 0.28])
+    ax_cu = fig.add_axes([0.56, 0.28, 0.38, 0.27])
     ax_cu.set_title('Cumulative exposure (green hole)', fontsize=9)
     img_cu = ax_cu.imshow(cumulative_map, aspect='equal', cmap='hot',
                           vmin=0, interpolation='nearest',
@@ -141,15 +139,24 @@ def main():
     dot_center = ax.plot(cx, cy, 'ro', ms=6, zorder=5, label='Disk center')[0]
     dot_sector = ax.plot(cx, cy, 'bo', ms=6, zorder=5, visible=False, label='Sector center')[0]
 
-    ax_a1  = fig.add_axes([0.20, 0.232, 0.60, 0.022])
-    ax_a2  = fig.add_axes([0.20, 0.207, 0.60, 0.022])
-    ax_s1  = fig.add_axes([0.20, 0.182, 0.60, 0.022])
-    ax_s2  = fig.add_axes([0.20, 0.157, 0.60, 0.022])
-    ax_qg  = fig.add_axes([0.20, 0.132, 0.60, 0.022])
-    ax_q   = fig.add_axes([0.20, 0.107, 0.60, 0.022])
-    ax_ox  = fig.add_axes([0.20, 0.082, 0.60, 0.022])
-    ax_oy  = fig.add_axes([0.20, 0.057, 0.60, 0.022])
-    ax_n   = fig.add_axes([0.20, 0.032, 0.60, 0.022])
+    y0 = 0.242
+    dh = 0.010
+    gap = 0.009
+    step = dh + gap
+    def sy(i): return y0 - i * step
+
+    ax_a1  = fig.add_axes([0.22, sy(0),  0.56, dh])
+    ax_a2  = fig.add_axes([0.22, sy(1),  0.56, dh])
+    ax_s1  = fig.add_axes([0.22, sy(2),  0.56, dh])
+    ax_s2  = fig.add_axes([0.22, sy(3),  0.56, dh])
+    ax_qg  = fig.add_axes([0.22, sy(4),  0.56, dh])
+    ax_q   = fig.add_axes([0.22, sy(5),  0.56, dh])
+    ax_sir = fig.add_axes([0.22, sy(6),  0.56, dh])
+    ax_sor = fig.add_axes([0.22, sy(7),  0.56, dh])
+    ax_saa = fig.add_axes([0.22, sy(8),  0.56, dh])
+    ax_ox  = fig.add_axes([0.22, sy(9),  0.56, dh])
+    ax_oy  = fig.add_axes([0.22, sy(10), 0.56, dh])
+    ax_n   = fig.add_axes([0.22, sy(11), 0.56, dh])
 
     s_angle1    = Slider(ax_a1, 'Gray start angle (°)', 0, 360, valinit=180, valfmt='%.0f', color='#999999')
     s_angle2    = Slider(ax_a2, 'Green start angle (°)', 0, 360, valinit=0, valfmt='%.0f', color='#90EE90')
@@ -157,21 +164,26 @@ def main():
     s_speed2    = Slider(ax_s2, 'Green speed (RPM)', 0, 120, valinit=0, valfmt='%.1f', color='#90EE90')
     s_hole_gray = Slider(ax_qg, 'Gray hole size', 0.02, 1.5, valinit=0.5, valfmt='%.2f')
     s_hole_green= Slider(ax_q,  'Green hole size', 0.02, 1.5, valinit=0.5, valfmt='%.2f')
+    s_sec_inner = Slider(ax_sir, 'Sector inner R', 0.01, 0.8, valinit=0.04, valfmt='%.2f')
+    s_sec_outer = Slider(ax_sor, 'Sector outer R', 0.01, 0.8, valinit=0.29, valfmt='%.2f')
+    s_sec_angle = Slider(ax_saa, 'Sector arc (°)', 1, 180, valinit=90, valfmt='%.0f', valstep=1)
     s_off_x     = Slider(ax_ox, 'Sector X offset', -0.8, 0.8, valinit=0, valfmt='%.2f')
     s_off_y     = Slider(ax_oy, 'Sector Y offset', -0.8, 0.8, valinit=0, valfmt='%.2f')
     s_grid      = Slider(ax_n,  'Grid (N×N)', 2, 200, valinit=100, valfmt='%d', valstep=1)
 
-    for s in [s_angle1, s_angle2, s_speed1, s_speed2, s_hole_gray, s_hole_green, s_off_x, s_off_y, s_grid]:
-        s.valtext.set_fontsize(7)
-        s.label.set_fontsize(7)
+    all_sliders = [s_angle1, s_angle2, s_speed1, s_speed2, s_hole_gray, s_hole_green,
+                   s_sec_inner, s_sec_outer, s_sec_angle, s_off_x, s_off_y, s_grid]
+    for s in all_sliders:
+        s.valtext.set_fontsize(6)
+        s.label.set_fontsize(6)
 
     angle1 = [0.0]
     angle2 = [0.0]
     paused = [False]
 
-    ax_hole_label = fig.add_axes([0.53, 0.262, 0.20, 0.03])
+    ax_hole_label = fig.add_axes([0.53, 0.256, 0.20, 0.022])
     ax_hole_label.axis('off')
-    hole_label = ax_hole_label.text(0, 0.5, 'Gray hole: Square', fontsize=8,
+    hole_label = ax_hole_label.text(0, 0.5, 'Gray hole: Square', fontsize=7,
                                     fontfamily='monospace', verticalalignment='center')
 
     def on_grid_change(val):
@@ -189,9 +201,9 @@ def main():
 
     s_grid.on_changed(on_grid_change)
 
-    ax_btn1 = fig.add_axes([0.20, 0.262, 0.10, 0.028])
-    ax_btn2 = fig.add_axes([0.315, 0.262, 0.10, 0.028])
-    ax_btn3 = fig.add_axes([0.74, 0.262, 0.14, 0.028])
+    ax_btn1 = fig.add_axes([0.22, 0.256, 0.10, 0.022])
+    ax_btn2 = fig.add_axes([0.335, 0.256, 0.10, 0.022])
+    ax_btn3 = fig.add_axes([0.74, 0.256, 0.14, 0.022])
     btn_pause = Button(ax_btn1, 'Pause', color='lightgray', hovercolor='yellow')
     btn_reset = Button(ax_btn2, 'Reset', color='lightgray', hovercolor='orange')
     btn_hole  = Button(ax_btn3, 'Toggle', color='lightgray', hovercolor='cyan')
@@ -211,7 +223,11 @@ def main():
         if typ == 'Round':
             return disk_with_round_hole_path(radius, offset, size, angle, cx, cy)
         elif typ == 'Sector':
-            return disk_with_sector_hole_path(radius, offset, size, angle, cx, cy, s_off_x.val, s_off_y.val)
+            sec_r = s_sec_outer.val
+            sec_in = s_sec_inner.val
+            return disk_with_sector_hole_path(radius, offset, sec_r, angle, cx, cy,
+                                              s_off_x.val, s_off_y.val,
+                                              sec_in, np.deg2rad(s_sec_angle.val) / 2)
         else:
             return disk_with_hole_path(radius, offset, size, angle, cx, cy)
 
@@ -220,7 +236,10 @@ def main():
         if typ == 'Round':
             return point_in_circle(px, py, hx, hy, size)
         elif typ == 'Sector':
-            return point_in_sector(px, py, sector_cx, sector_cy, angle, size, np.pi/4)
+            sec_r = s_sec_outer.val
+            sec_in = s_sec_inner.val
+            sec_ha = np.deg2rad(s_sec_angle.val) / 2
+            return point_in_sector(px, py, sector_cx, sector_cy, angle, sec_r, sec_ha, sec_in)
         else:
             return point_in_square(px, py, hx, hy, angle, size)
 
@@ -356,13 +375,16 @@ def main():
     s_angle1.on_changed(on_angle_change)
     s_angle2.on_changed(on_angle_change)
 
-    def on_offset_change(val):
+    def on_sector_change(val):
         update_sector_dot()
         rebuild_displays()
         fig.canvas.draw_idle()
 
-    s_off_x.on_changed(on_offset_change)
-    s_off_y.on_changed(on_offset_change)
+    s_sec_inner.on_changed(on_sector_change)
+    s_sec_outer.on_changed(on_sector_change)
+    s_sec_angle.on_changed(on_sector_change)
+    s_off_x.on_changed(on_sector_change)
+    s_off_y.on_changed(on_sector_change)
 
     plt.show()
 
